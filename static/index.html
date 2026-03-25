@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Network Analysis</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Chat Network Analysis</h1>
+    <div class="search-container">
+      <input type="text" id="search" placeholder="유저 검색..." autocomplete="off">
+      <div id="search-results" class="search-dropdown"></div>
+    </div>
+    <div class="header-stats" id="header-stats"></div>
+  </header>
+
+  <main>
+    <div id="graph-container">
+      <svg id="network-svg"></svg>
+      <div id="tooltip" class="tooltip"></div>
+    </div>
+
+    <aside id="side-panel" class="side-panel hidden">
+      <button id="close-panel" class="close-btn">&times;</button>
+      <div id="panel-content"></div>
+    </aside>
+  </main>
+
+  <div id="view-controls">
+    <button id="btn-full-view" class="view-btn active">전체 네트워크</button>
+    <button id="btn-reset-zoom" class="view-btn">줌 리셋</button>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

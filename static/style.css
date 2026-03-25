@@ -1,0 +1,370 @@
+/* ── 기본 ────────────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0d1117;
+  --bg-surface: #161b22;
+  --bg-hover: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent-dim: #1f6feb;
+  --green: #3fb950;
+  --orange: #d29922;
+  --red: #f85149;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+}
+
+/* ── 헤더 ────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 100;
+}
+
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.search-container {
+  position: relative;
+  width: 280px;
+}
+
+#search {
+  width: 100%;
+  padding: 6px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+#search:focus {
+  border-color: var(--accent);
+}
+
+.search-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 200;
+  margin-top: 4px;
+}
+
+.search-dropdown.visible {
+  display: block;
+}
+
+.search-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.search-item:hover {
+  background: var(--bg-hover);
+}
+
+.search-item .count {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.header-stats {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ── 메인 ────────────────────────────────────────────── */
+main {
+  display: flex;
+  height: calc(100vh - 49px);
+  position: relative;
+}
+
+#graph-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#network-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 툴팁 ────────────────────────────────────────────── */
+.tooltip {
+  display: none;
+  position: absolute;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 150;
+  max-width: 250px;
+}
+
+.tooltip.visible {
+  display: block;
+}
+
+.tooltip .name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tooltip .detail {
+  color: var(--text-dim);
+}
+
+/* ── 사이드 패널 ─────────────────────────────────────── */
+.side-panel {
+  width: 340px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  transition: transform 0.2s ease;
+}
+
+.side-panel.hidden {
+  display: none;
+}
+
+.close-btn {
+  float: right;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.close-btn:hover {
+  color: var(--text);
+}
+
+.panel-section {
+  margin-bottom: 20px;
+}
+
+.panel-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.panel-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-dim);
+}
+
+.user-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+}
+
+.user-info .name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.user-info .detail {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* 중심성 지표 */
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.metric-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.metric-card .label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-card .value {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 2px 0;
+}
+
+.metric-card .rank {
+  font-size: 11px;
+  color: var(--orange);
+}
+
+/* 대화 상대 */
+.partner-list {
+  list-style: none;
+}
+
+.partner-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.partner-item:hover {
+  color: var(--accent);
+}
+
+.partner-item:last-child {
+  border-bottom: none;
+}
+
+.partner-bar {
+  height: 4px;
+  background: var(--accent-dim);
+  border-radius: 2px;
+  margin-top: 2px;
+}
+
+/* 커뮤니티 멤버 */
+.member-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.member-tag {
+  padding: 3px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.member-tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.member-tag.current {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+/* ── 뷰 컨트롤 ───────────────────────────────────────── */
+#view-controls {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 100;
+}
+
+.view-btn {
+  padding: 6px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.view-btn:hover {
+  background: var(--bg-hover);
+}
+
+.view-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+/* ── 로딩 ────────────────────────────────────────────── */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13, 17, 23, 0.9);
+  z-index: 500;
+  font-size: 16px;
+}
+
+.loading-overlay .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
