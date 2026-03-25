@@ -15,12 +15,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import networkx as nx
-from networkx.community import louvain_communities, modularity
+from networkx.algorithms.community import louvain_communities, modularity
 
 from app.config import (
     DB_PATH, CHANNEL_ID, TIME_WINDOW_MS,
     WEIGHT_TEMPORAL, WEIGHT_MENTION, WEIGHT_NICKNAME,
-    NICKNAME_CACHE_PATH,
+    NICKNAME_CACHE_PATH, ANALYSIS_START_MS, ANALYSIS_END_MS,
 )
 
 # ── 노이즈 필터링 패턴 (MiruBot stats_service.py L11-19) ──────────────
@@ -55,10 +55,11 @@ def load_messages() -> pd.DataFrame:
         SELECT id, user_hash, user_name, content, timestamp
         FROM chat_logs
         WHERE channel_id = ? AND user_hash IS NOT NULL AND user_name IS NOT NULL
+          AND timestamp >= ? AND timestamp < ?
         ORDER BY timestamp
         """,
         conn,
-        params=(CHANNEL_ID,),
+        params=(CHANNEL_ID, ANALYSIS_START_MS, ANALYSIS_END_MS),
     )
     conn.close()
     print(f"[analysis] Loaded {len(df):,} messages from {df['user_hash'].nunique()} users")

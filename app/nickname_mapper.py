@@ -1,9 +1,10 @@
 """
 LLM 기반 비공식 닉네임 → 실제 유저 매핑
 Gemini API를 사용하여 채팅 메시지에서 사용되는 별명을 실제 닉네임에 매핑한다.
-결과는 JSON 파일로 캐싱.
+결과는 JSON 파일로 캐싱. CSV로 내보내 수동 편집 가능.
 """
 
+import csv
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import pandas as pd
 
 from app.config import (
     DB_PATH, CHANNEL_ID, GEMINI_API_KEY, GEMINI_MODEL, NICKNAME_CACHE_PATH,
+    ANALYSIS_START_MS, ANALYSIS_END_MS, NICKNAME_REVIEW_PATH,
 )
 
 
@@ -43,7 +45,7 @@ def _call_gemini(prompt: str) -> str:
 
     if "usageMetadata" in data:
         u = data["usageMetadata"]
-        print(f"[nickname_mapper] Tokens — in: {u.get('promptTokenCount', 0)}, out: {u.get('candidatesTokenCount', 0)}")
+        print(f"[nickname_mapper] Tokens - in: {u.get('promptTokenCount', 0)}, out: {u.get('candidatesTokenCount', 0)}")
 
     # 마크다운 코드블록 제거
     clean = re.sub(r"^```[a-zA-Z]*\n", "", raw)
@@ -62,11 +64,12 @@ def _sample_messages(n: int = 150) -> list[str]:
           AND length(content) > 5
           AND content NOT LIKE '%을 보냈습니다%'
           AND content NOT LIKE 'http%'
+          AND timestamp >= ? AND timestamp < ?
         ORDER BY RANDOM()
         LIMIT ?
         """,
         conn,
-        params=(CHANNEL_ID, n),
+        params=(CHANNEL_ID, ANALYSIS_START_MS, ANALYSIS_END_MS, n),
     )
     conn.close()
     return df["content"].tolist()
@@ -79,11 +82,12 @@ def _get_user_names() -> list[str]:
         SELECT user_name, COUNT(*) as cnt
         FROM chat_logs
         WHERE channel_id = ? AND user_name IS NOT NULL
+          AND timestamp >= ? AND timestamp < ?
         GROUP BY user_hash
         ORDER BY cnt DESC
         """,
         conn,
-        params=(CHANNEL_ID,),
+        params=(CHANNEL_ID, ANALYSIS_START_MS, ANALYSIS_END_MS),
     )
     conn.close()
     return df["user_name"].tolist()
@@ -133,28 +137,111 @@ def generate_nickname_map() -> dict[str, str]:
     return result
 
 
+def _find_sample_messages_for_nick(nick: str, n: int = 3) -> list[str]:
+    """특정 닉네임이 포함된 메시지 예시를 찾는다."""
+    conn = sqlite3.connect(DB_PATH)
+    df = pd.read_sql_query(
+        """
+        SELECT content FROM chat_logs
+        WHERE channel_id = ? AND content LIKE ?
+          AND timestamp >= ? AND timestamp < ?
+        ORDER BY RANDOM()
+        LIMIT ?
+        """,
+        conn,
+        params=(CHANNEL_ID, f"%{nick}%", ANALYSIS_START_MS, ANALYSIS_END_MS, n),
+    )
+    conn.close()
+    return df["content"].tolist()
+
+
+def export_review_csv(nickname_map: dict[str, str], user_registry: dict) -> str:
+    """닉네임 매핑을 편집 가능한 CSV로 내보낸다."""
+    name_to_hash = {v: k for k, v in user_registry.items()}
+
+    # 유저별 메시지 수 조회
+    conn = sqlite3.connect(DB_PATH)
+    msg_counts = pd.read_sql_query(
+        """
+        SELECT user_hash, COUNT(*) as cnt FROM chat_logs
+        WHERE channel_id = ? AND timestamp >= ? AND timestamp < ?
+        GROUP BY user_hash
+        """,
+        conn,
+        params=(CHANNEL_ID, ANALYSIS_START_MS, ANALYSIS_END_MS),
+    ).set_index("user_hash")["cnt"].to_dict()
+    conn.close()
+
+    os.makedirs(os.path.dirname(NICKNAME_REVIEW_PATH), exist_ok=True)
+
+    with open(NICKNAME_REVIEW_PATH, "w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["nickname", "mapped_to", "user_hash", "msg_count", "sample_messages", "approved"])
+
+        for nick, real_name in sorted(nickname_map.items()):
+            user_hash = name_to_hash.get(real_name, "")
+            if not user_hash:
+                for name, h in name_to_hash.items():
+                    if real_name in name or name in real_name:
+                        user_hash = h
+                        break
+            msg_count = msg_counts.get(user_hash, 0)
+            samples = _find_sample_messages_for_nick(nick, 3)
+            sample_str = " | ".join(s.replace("\n", " ")[:80] for s in samples)
+
+            writer.writerow([nick, real_name, user_hash, msg_count, sample_str, "TRUE"])
+
+    print(f"[nickname_mapper] Exported review CSV ({len(nickname_map)} entries) → {NICKNAME_REVIEW_PATH}")
+    return NICKNAME_REVIEW_PATH
+
+
+def load_nickname_map_from_csv() -> dict[str, str] | None:
+    """CSV에서 approved=TRUE인 행만 로드. 파일 없으면 None 반환."""
+    if not os.path.exists(NICKNAME_REVIEW_PATH):
+        return None
+
+    result = {}
+    with open(NICKNAME_REVIEW_PATH, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row.get("approved", "").strip().upper() == "TRUE":
+                result[row["nickname"]] = row["mapped_to"]
+
+    print(f"[nickname_mapper] Loaded from review CSV ({len(result)} approved entries)")
+    return result
+
+
 def load_or_generate_nickname_map(user_registry: dict) -> dict[str, str]:
-    """캐시된 매핑 파일이 있으면 로드, 없으면 생성"""
-    # 캐시 로드 시도
+    """우선순위: CSV → JSON → Gemini 생성"""
+    # 1. CSV (사용자 편집본) 우선
+    csv_map = load_nickname_map_from_csv()
+    if csv_map is not None:
+        return csv_map
+
+    # 2. JSON 캐시
     if os.path.exists(NICKNAME_CACHE_PATH):
         with open(NICKNAME_CACHE_PATH, "r", encoding="utf-8") as f:
             cached = json.load(f)
         print(f"[nickname_mapper] Loaded cached map ({len(cached)} entries)")
+        # JSON이 있으면 CSV도 생성해둔다
+        export_review_csv(cached, user_registry)
         return cached
 
-    # API 키가 없으면 빈 매핑 반환
+    # 3. API 키가 없으면 빈 매핑 반환
     if not GEMINI_API_KEY:
         print("[nickname_mapper] No GEMINI_API_KEY, skipping nickname mapping")
         return {}
 
-    # 생성
+    # 4. Gemini 생성
     nickname_map = generate_nickname_map()
 
-    # 캐시 저장
+    # JSON + CSV 동시 저장
     os.makedirs(os.path.dirname(NICKNAME_CACHE_PATH), exist_ok=True)
     with open(NICKNAME_CACHE_PATH, "w", encoding="utf-8") as f:
         json.dump(nickname_map, f, ensure_ascii=False, indent=2)
     print(f"[nickname_mapper] Saved to {NICKNAME_CACHE_PATH}")
+
+    export_review_csv(nickname_map, user_registry)
 
     return nickname_map
 

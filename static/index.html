@@ -6,33 +6,141 @@
   <title>Chat Network Analysis</title>
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <header>
-    <h1>Chat Network Analysis</h1>
+    <h1>Chat Network</h1>
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="network">네트워크</button>
+      <button class="tab-btn" data-tab="text">텍스트 분석</button>
+      <button class="tab-btn" data-tab="types">유저 유형</button>
+    </nav>
     <div class="search-container">
       <input type="text" id="search" placeholder="유저 검색..." autocomplete="off">
       <div id="search-results" class="search-dropdown"></div>
     </div>
-    <div class="header-stats" id="header-stats"></div>
+    <div class="header-right">
+      <div id="analysis-badges"></div>
+      <div class="header-stats" id="header-stats"></div>
+    </div>
   </header>
 
   <main>
-    <div id="graph-container">
-      <svg id="network-svg"></svg>
-      <div id="tooltip" class="tooltip"></div>
+    <!-- 네트워크 탭 -->
+    <div id="tab-network" class="tab-content active">
+      <div id="graph-container">
+        <svg id="network-svg"></svg>
+        <div id="tooltip" class="tooltip"></div>
+        <div id="legend" class="legend"></div>
+      </div>
+      <aside id="side-panel" class="side-panel hidden">
+        <button id="close-panel" class="close-btn">&times;</button>
+        <div id="panel-content"></div>
+      </aside>
     </div>
 
-    <aside id="side-panel" class="side-panel hidden">
-      <button id="close-panel" class="close-btn">&times;</button>
-      <div id="panel-content"></div>
-    </aside>
+    <!-- 텍스트 분석 탭 -->
+    <div id="tab-text" class="tab-content">
+      <div class="text-layout">
+        <div class="text-main">
+          <!-- 유저 분석 섹션 -->
+          <div class="text-section">
+            <div class="section-header">
+              <h2>유저별 텍스트 분석</h2>
+              <select id="text-user-select" class="styled-select">
+                <option value="">유저를 선택하세요</option>
+              </select>
+            </div>
+            <div class="text-user-row">
+              <div class="text-card" id="wordcloud-card">
+                <h3>WordCloud</h3>
+                <div class="card-body">
+                  <div class="card-placeholder">
+                    <div class="placeholder-icon">&#9729;</div>
+                    <p>유저를 선택하면 워드클라우드가 표시됩니다</p>
+                  </div>
+                </div>
+              </div>
+              <div class="text-card" id="tfidf-card">
+                <h3>TF-IDF 특징 단어</h3>
+                <div class="card-body">
+                  <div class="card-placeholder">
+                    <div class="placeholder-icon">&#9776;</div>
+                    <p>유저를 선택하면 특징 단어가 표시됩니다</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 커뮤니티 TF-IDF -->
+          <div class="text-section">
+            <div class="section-header">
+              <h2>커뮤니티별 특징 단어</h2>
+            </div>
+            <div id="community-tfidf-grid" class="community-grid"></div>
+          </div>
+
+          <!-- 토픽 모델링 -->
+          <div class="text-section">
+            <div class="section-header">
+              <h2>토픽 모델링 (LDA)</h2>
+            </div>
+            <div class="text-card wide">
+              <div class="card-body chart-container">
+                <canvas id="topics-chart"></canvas>
+              </div>
+            </div>
+            <div id="topics-keywords" class="topics-table"></div>
+          </div>
+
+          <!-- 감성 분석 -->
+          <div class="text-section">
+            <div class="section-header">
+              <h2>감성 분석</h2>
+              <div id="sentiment-summary" class="sentiment-summary"></div>
+            </div>
+            <div class="text-card wide">
+              <div class="card-body chart-container">
+                <canvas id="sentiment-chart"></canvas>
+              </div>
+            </div>
+            <div id="gemini-moods"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 유저 유형 탭 -->
+    <div id="tab-types" class="tab-content">
+      <div class="types-layout">
+        <!-- 클러스터 비교 -->
+        <div class="types-top">
+          <div class="types-summary" id="types-summary">
+            <div class="card-placeholder">
+              <div class="spinner"></div>
+              <p>유저 분류 분석 중...</p>
+            </div>
+          </div>
+          <div class="types-radar-wrap">
+            <canvas id="cluster-radar"></canvas>
+          </div>
+        </div>
+        <!-- 유저 카드 -->
+        <div class="types-filter" id="types-filter"></div>
+        <div class="types-grid" id="types-grid"></div>
+      </div>
+    </div>
   </main>
 
   <div id="view-controls">
     <button id="btn-full-view" class="view-btn active">전체 네트워크</button>
     <button id="btn-reset-zoom" class="view-btn">줌 리셋</button>
   </div>
+
+  <!-- 토스트 -->
+  <div id="toast-container"></div>
 
   <script src="/static/app.js"></script>
 </body>
